@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="TokenTrace is a local-first dashboard for AI token usage across OpenCode, Antigravity, Claude Code, Codex and Gemini CLI.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%237c6cff'/%3E%3Cpath d='M32 12l15 8.7v21.7L32 51l-15-8.6V20.7L32 12z' fill='none' stroke='white' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M24 39V27m8 12V21m8 18v-8' stroke='white' stroke-width='3.4' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>TokenTrace</title>
+<style>
+  :root{
+    --bg:#08090d;
+    --panel:rgba(18,20,29,.72);
+    --panel-solid:#11131b;
+    --border:rgba(255,255,255,.075);
+    --border-strong:rgba(255,255,255,.14);
+    --text:#eceef6;
+    --muted:#8e94a8;
+    --faint:#7f869c;
+    --accent:#8b7bff;
+    --accent-2:#22d3ee;
+    --green:#34d399;
+    --amber:#fbbf24;
+    --pink:#f472b6;
+    --red:#fb7185;
+    --radius:18px;
+    --font:"Inter","Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,Roboto,sans-serif;
+    --mono:"Cascadia Code","SFMono-Regular",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{
+    margin:0;background:var(--bg);color:var(--text);font-family:var(--font);
+    min-height:100vh;overflow-x:hidden;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(900px 520px at 12% -12%,rgba(139,123,255,.16),transparent 62%),
+      radial-gradient(760px 460px at 98% 0%,rgba(34,211,238,.09),transparent 62%),
+      radial-gradient(900px 700px at 50% 120%,rgba(52,211,153,.05),transparent 62%);
+  }
+  ::selection{background:rgba(139,123,255,.35)}
+  button,select,input{font-family:inherit}
+  button{cursor:pointer}
+  .app{position:relative;z-index:1;max-width:1260px;margin:0 auto;padding:24px 28px 54px}
+  .muted{color:var(--muted)}
+  .mono{font-family:var(--mono);font-size:11.5px}
+
+  /* top bar */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:26px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:40px;height:40px;border-radius:13px;display:grid;place-items:center;
+    background:linear-gradient(145deg,#a294ff 0%,#6d5efc 52%,#4f46e5 100%);
+    box-shadow:0 10px 30px rgba(109,94,252,.32),inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .logo svg{width:22px;height:22px}
+  .brand-name{font-size:15px;font-weight:680;letter-spacing:-.2px;line-height:1.1}
+  .brand-sub{font-size:10.5px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase;margin-top:3px}
+  .top-actions{display:flex;align-items:center;gap:10px}
+  .live{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(52,211,153,.5);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.45)}70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+  .btn{
+    border:0;border-radius:11px;padding:10px 15px;font-size:12.5px;font-weight:640;color:#fff;
+    background:linear-gradient(180deg,#9d90ff,#7c6cff);box-shadow:0 8px 24px rgba(124,108,255,.26);
+    transition:transform .15s ease,filter .15s ease,opacity .15s;
+    display:inline-flex;align-items:center;gap:8px;
+  }
+  .btn:hover{transform:translateY(-1px);filter:brightness(1.06)}
+  .btn:active{transform:translateY(0)}
+  .btn:disabled{opacity:.55;cursor:default;transform:none}
+  .btn.secondary{background:rgba(255,255,255,.05);border:1px solid var(--border);box-shadow:none;color:var(--text)}
+  .btn.secondary:hover{background:rgba(255,255,255,.08)}
+  .icon-btn{
+    width:38px;height:38px;border-radius:11px;border:1px solid var(--border);background:rgba(255,255,255,.035);
+    color:var(--muted);display:grid;place-items:center;transition:.15s;
+  }
+  .icon-btn:hover{color:var(--text);background:rgba(255,255,255,.07);border-color:var(--border-strong)}
+  .icon-btn svg{width:17px;height:17px}
+
+  /* hero */
+  .hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(430px,560px);gap:30px;align-items:end;margin:8px 0 22px}
+  .eyebrow{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap}
+  .range-pill{
+    font-size:10.5px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:#c9c4ff;
+    background:rgba(139,123,255,.13);border:1px solid rgba(139,123,255,.25);padding:5px 9px;border-radius:999px;
+  }
+  .hero-note{font-size:11.5px;color:var(--faint)}
+  h1.hero-total{
+    margin:0;font-size:clamp(46px,6vw,66px);line-height:.96;font-weight:690;letter-spacing:-.05em;
+    background:linear-gradient(180deg,#ffffff 10%,#b9bdd0 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    font-variant-numeric:tabular-nums;
+  }
+  .hero-total small{font-size:.34em;letter-spacing:-.02em;font-weight:600;color:var(--muted);-webkit-text-fill-color:var(--muted);margin-left:4px}
+  .hero-sub{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--muted)}
+  .delta{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px;font-weight:650;font-size:11px}
+  .delta.up{color:#86efac;background:rgba(52,211,153,.10);border:1px solid rgba(52,211,153,.18)}
+  .delta.down{color:#fda4af;background:rgba(251,113,133,.10);border:1px solid rgba(251,113,133,.18)}
+  .delta.neutral{color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--border)}
+  .cost-line{margin-top:10px;font-size:11.5px;color:var(--faint)}
+  .cost-line strong{color:#c6c9d8;font-weight:600}
+  .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+  .kpi{
+    position:relative;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));
+    border:1px solid var(--border);border-radius:14px;padding:12px 12px 11px;overflow:hidden;min-height:86px;
+  }
+  .kpi .dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:1px}
+  .kpi-label{font-size:10.5px;color:var(--muted);letter-spacing:.02em;white-space:nowrap}
+  .kpi-value{font-size:18px;font-weight:660;letter-spacing:-.02em;margin-top:8px;font-variant-numeric:tabular-nums}
+  .kpi-track{position:absolute;left:12px;right:12px;bottom:9px;height:3px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+  .kpi-track i{display:block;height:100%;border-radius:3px;transition:width .5s ease}
+
+  /* filters */
+  .filters{
+    position:sticky;top:10px;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:9px 11px;border:1px solid var(--border);border-radius:14px;
+    background:rgba(13,15,22,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    box-shadow:0 14px 40px rgba(0,0,0,.22);margin-bottom:14px;
+  }
+  .range-pills{display:flex;gap:2px;background:rgba(255,255,255,.035);padding:3px;border-radius:10px;border:1px solid rgba(255,255,255,.04)}
+  .range-pills button{
+    border:0;background:transparent;color:var(--muted);font-size:11.5px;font-weight:600;padding:7px 11px;border-radius:8px;transition:.15s;
+  }
+  .range-pills button:hover{color:var(--text)}
+  .range-pills button.active{background:rgba(255,255,255,.09);color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.06) inset}
+  .selects{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .select-wrap{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.028);border:1px solid var(--border);border-radius:9px;padding:0 9px;height:34px}
+  .select-wrap label{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  select{
+    appearance:none;background:transparent;border:0;color:#d5d8e6;font-size:11.5px;font-weight:550;max-width:150px;
+    padding:0 16px 0 0;outline:none;cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6'%3E%3Cpath d='M1 1l3.5 3.5L8 1' fill='none' stroke='%238e94a8' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right center;
+  }
+  select option{background:#151722;color:#e6e8f2}
+  .reset{border:0;background:transparent;color:var(--faint);font-size:11px;padding:7px 5px}
+  .reset:hover{color:var(--text)}
+
+  /* layout */
+  .grid{display:grid;gap:14px;margin-bottom:14px}
+  .grid-main{grid-template-columns:minmax(0,2.05fr) minmax(310px,1fr)}
+  .grid-secondary{grid-template-columns:minmax(0,1.55fr) minmax(310px,1fr)}
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.036),rgba(255,255,255,.012));
+    border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:0 24px 70px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.025);
+    padding:18px;min-width:0;
+  }
+  .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:6px}
+  .card-head h2{margin:0;font-size:13.5px;font-weight:650;letter-spacing:-.01em}
+  .card-head p{margin:4px 0 0;font-size:11px;color:var(--faint)}
+  .card-head .right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+  /* chart */
+  .chart-wrap{position:relative;height:286px;margin-top:8px}
+  #dailyChart{width:100%;height:100%;display:block;overflow:visible}
+  .chart-legend{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end}
+  .legend-item{
+    display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;color:var(--muted);
+    font-size:10.5px;font-weight:550;padding:2px 0;transition:.15s;white-space:nowrap;
+  }
+  .legend-item:hover{color:var(--text)}
+  .legend-item.off{opacity:.35}
+  .legend-dot{width:7px;height:7px;border-radius:2px}
+  .tooltip{
+    position:absolute;pointer-events:none;min-width:178px;background:rgba(23,26,36,.97);
+    border:1px solid var(--border-strong);border-radius:11px;padding:10px 11px;
+    box-shadow:0 18px 50px rgba(0,0,0,.5);opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s;z-index:5;
+  }
+  .tooltip.show{opacity:1;transform:translateY(0)}
+  .tt-date{font-size:10.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:7px}
+  .tt-row{display:flex;align-items:center;justify-content:space-between;gap:18px;font-size:11.5px;padding:2px 0}
+  .tt-row span{display:flex;align-items:center;gap:6px;color:var(--muted)}
+  .tt-row strong{font-variant-numeric:tabular-nums;font-weight:600;color:#e8eaf2}
+  .tt-total{border-top:1px solid var(--border);margin-top:7px;padding-top:7px}
+  .tt-total span{color:#cfd2e0}
+  .empty-chart{display:flex;align-items:center;justify-content:center;height:100%;color:var(--faint);font-size:12px;flex-direction:column;gap:8px}
+  .empty-chart svg{width:26px;height:26px;opacity:.5}
+
+  /* donut */
+  .donut-row{display:flex;align-items:center;gap:18px;margin-top:14px}
+  .donut{
+    width:166px;height:166px;border-radius:50%;flex-shrink:0;position:relative;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+  }
+  .donut-hole{
+    position:absolute;inset:24px;border-radius:50%;background:#0e1017;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.05);
+  }
+  .donut-hole strong{font-size:20px;font-weight:670;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .donut-hole span{font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-top:3px}
+  .source-legend{display:flex;flex-direction:column;gap:9px;min-width:0;flex:1}
+  .source-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:8px;align-items:center}
+  .source-row .dot{width:8px;height:8px;border-radius:3px}
+  .source-name{font-size:11.5px;color:#cfd2e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .source-share{font-size:10.5px;color:var(--faint);font-variant-numeric:tabular-nums;text-align:right}
+  .source-share b{display:block;color:#d9dbe7;font-weight:600}
+  .source-more{font-size:10.5px;color:var(--faint);padding-left:16px}
+
+  /* models */
+  .model-list{margin-top:10px}
+  .model-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:11px 0;border-top:1px solid var(--border)}
+  .model-row:first-child{border-top:0;padding-top:4px}
+  .model-name{font-size:12px;font-weight:590;color:#e3e5ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+  .provider-tag{
+    font-size:8.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+    border:1px solid var(--border);padding:2px 5px;border-radius:5px;flex-shrink:0;
+  }
+  .model-track{height:4px;border-radius:4px;background:rgba(255,255,255,.055);margin-top:7px;overflow:hidden}
+  .model-track i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#8b7bff,#6d5efc);transition:width .5s ease}
+  .model-nums{text-align:right;flex-shrink:0}
+  .model-nums strong{display:block;font-size:12px;font-weight:640;font-variant-numeric:tabular-nums}
+  .model-nums span{display:block;font-size:10px;color:var(--faint);margin-top:3px;font-variant-numeric:tabular-nums}
+  .model-share{font-size:9.5px;color:var(--faint);margin-top:1px}
+
+  /* composition */
+  .stackbar{display:flex;height:12px;border-radius:7px;overflow:hidden;margin:14px 0 14px;background:rgba(255,255,255,.05)}
+  .stackbar i{display:block;height:100%;min-width:2px}
+  .mix-list{display:flex;flex-direction:column;gap:8px}
+  .mix-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:8px;align-items:center;font-size:11.5px}
+  .mix-row .dot{width:8px;height:8px;border-radius:3px}
+  .mix-label{color:var(--muted)}
+  .mix-value{font-variant-numeric:tabular-nums;color:#d9dbe7;font-weight:550}
+  .mix-pct{font-size:10px;color:var(--faint);width:40px;text-align:right;font-variant-numeric:tabular-nums}
+  .insight{
+    margin-top:14px;padding:11px 12px;border-radius:11px;background:rgba(139,123,255,.065);
+    border:1px solid rgba(139,123,255,.14);font-size:11px;line-height:1.55;color:#b9bdcd;
+  }
+  .insight b{color:#d7d2ff;font-weight:600}
+
+  /* sessions */
+  .sessions-card{padding-bottom:8px}
+  .table-wrap{overflow-x:auto;margin-top:8px}
+  table{width:100%;border-collapse:collapse;min-width:760px}
+  thead th{
+    text-align:left;font-size:9.5px;font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+    padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;
+  }
+  thead th.num{text-align:right}
+  tbody td{padding:11px 10px;border-bottom:1px solid rgba(255,255,255,.045);font-size:11.5px;vertical-align:middle}
+  tbody tr.session-row{cursor:pointer;transition:background .12s}
+  tbody tr.session-row:hover{background:rgba(255,255,255,.022)}
+  tbody tr.session-row.open{background:rgba(139,123,255,.045)}
+  .session-title{font-size:12px;font-weight:570;color:#e5e7f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+  .session-sub{font-size:10px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+  .app-badge{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:#c9ccda;white-space:nowrap}
+  .app-dot{width:6px;height:6px;border-radius:2px;flex-shrink:0}
+  .model-chip{
+    display:inline-block;font-size:9.5px;color:#b9bdcb;background:rgba(255,255,255,.045);border:1px solid var(--border);
+    padding:3px 6px;border-radius:6px;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;
+  }
+  .chip-more{font-size:9px;color:var(--faint);margin-left:3px}
+  .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .num strong{font-weight:620;color:#e6e8f1}
+  .num span{display:block;font-size:10px;color:var(--faint);margin-top:2px}
+  .chev{width:22px;height:22px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--faint);display:grid;place-items:center;transition:.15s}
+  .session-row:hover .chev{color:var(--text);border-color:var(--border);background:rgba(255,255,255,.04)}
+  .chev svg{width:11px;height:11px;transition:transform .18s}
+  .session-row.open .chev svg{transform:rotate(90deg)}
+  tr.detail-row td{padding:0;border-bottom:1px solid var(--border)}
+  .detail-inner{padding:14px 16px 16px;background:rgba(255,255,255,.018);display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .detail-block h4{margin:0 0 8px;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:650}
+  .detail-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .detail-chip{font-size:10px;color:#bfc3d2;background:rgba(255,255,255,.04);border:1px solid var(--border);padding:4px 7px;border-radius:7px}
+  .detail-chip b{color:#eef0f7;font-weight:600;margin-left:4px}
+  .detail-meta{font-size:10px;color:var(--faint);margin-top:8px;line-height:1.6}
+  .detail-meta code{font-family:var(--mono);font-size:9.5px;color:#9da3b6}
+
+  /* empty / footer */
+  .empty-banner{
+    display:none;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;margin-bottom:14px;
+    border:1px dashed var(--border-strong);border-radius:14px;background:rgba(255,255,255,.02);font-size:12px;color:var(--muted);
+  }
+  .empty-banner.show{display:flex}
+  .footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:22px;font-size:10.5px;color:var(--faint)}
+  .footer .mono{color:var(--faint);font-size:9.5px}
+  .privacy{display:inline-flex;align-items:center;gap:6px}
+  .privacy svg{width:11px;height:11px}
+
+  /* modal */
+  .modal-backdrop{
+    position:fixed;inset:0;z-index:100;background:rgba(4,5,9,.68);backdrop-filter:blur(10px);
+    display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-backdrop.open{display:flex}
+  .modal{
+    width:100%;max-width:590px;max-height:86vh;overflow:auto;background:#11131b;border:1px solid var(--border-strong);
+    border-radius:20px;box-shadow:0 40px 120px rgba(0,0,0,.7);padding:22px;
+  }
+  .modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:6px}
+  .modal-head h3{margin:0;font-size:15px;font-weight:660;letter-spacing:-.01em}
+  .modal-head p{margin:5px 0 0;font-size:11.5px;color:var(--muted);line-height:1.5}
+  .modal-section{margin-top:18px}
+  .modal-section h4{margin:0 0 9px;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:650}
+  .account-row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:8px}
+  .account-key{font-family:var(--mono);font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .account-row input{
+    width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;
+    color:var(--text);padding:9px 10px;font-size:11.5px;outline:none;transition:.15s;
+  }
+  .account-row input:focus{border-color:rgba(139,123,255,.55);box-shadow:0 0 0 3px rgba(139,123,255,.12)}
+  .note{font-size:10.5px;color:var(--faint);line-height:1.6;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:10px;padding:10px 11px;margin-top:12px}
+  .note code{font-family:var(--mono);font-size:9.5px;color:#9da3b6;word-break:break-all}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+  .toast{
+    position:fixed;right:22px;bottom:22px;z-index:200;background:#171a24;border:1px solid var(--border-strong);
+    border-radius:12px;padding:11px 14px;font-size:11.5px;color:#dfe2ee;box-shadow:0 20px 60px rgba(0,0,0,.5);
+    opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none;max-width:360px;
+  }
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.error{border-color:rgba(251,113,133,.4);color:#fecdd3}
+
+  .spin{animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  @media(max-width:1050px){
+    .hero{grid-template-columns:1fr;gap:20px}
+    .kpis{max-width:620px}
+    .grid-main,.grid-secondary{grid-template-columns:1fr}
+    .donut-row{justify-content:flex-start}
+  }
+  @media(max-width:760px){
+    .app{padding:18px 14px 40px}
+    .topbar{align-items:flex-start;gap:10px}
+    .live{display:none}
+    .filters{position:static;flex-direction:column;align-items:stretch}
+    .selects{justify-content:space-between}
+    .select-wrap{flex:1;min-width:130px}
+    select{max-width:none;width:100%}
+    .hero-total{font-size:48px}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .donut-row{flex-direction:column;align-items:flex-start}
+    .donut{width:148px;height:148px}
+    .detail-inner{grid-template-columns:1fr}
+    .session-title,.session-sub{max-width:240px}
+    .chart-legend{display:none}
+    .card{padding:15px}
+    .hero{grid-template-columns:1fr}
+  }
+  @media(max-width:620px){
+    .selects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+    .select-wrap{min-width:0;width:100%}
+    .reset{grid-column:1/-1;justify-self:start}
+  }
+</style>
+</head>
+<body>
+<main class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.6l8 4.6v9.6l-8 4.6-8-4.6V7.2l8-4.6z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 15V9.8M12 15V7M16 15v-3.2" stroke="white" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">TokenTrace</div>
+        <div class="brand-sub">Local token ledger</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="live"><span class="live-dot"></span><span id="lastScan">Scanning local data</span></span>
+      <button class="btn" id="scanBtn">
+        <svg id="scanIcon" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 10-2.34 5.66M20 5v6h-6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span id="scanLabel">Scan now</span>
+      </button>
+      <button class="icon-btn" id="settingsBtn" aria-label="Accounts and settings" title="Accounts and settings">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 13.4a7.6 7.6 0 000-2.8l2-1.6-2-3.4-2.4 1a7.6 7.6 0 00-2.4-1.4L14.2 2h-4.4l-.4 2.2A7.6 7.6 0 006.9 5.6l-2.4-1-2 3.4 2 1.6a7.6 7.6 0 000 2.8l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 002.4 1.4l.5 2.2h4.4l.4-2.2a7.6 7.6 0 002.4-1.4l2.4 1 2-3.4-2-1.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">
+        <span class="range-pill" id="rangeLabel">Last 30 days</span>
+        <span class="hero-note" id="heroAccounts"></span>
+      </div>
+      <h1 class="hero-total" id="totalTokens">—</h1>
+      <div class="hero-sub">
+        <span id="deltaChip"></span>
+        <span id="heroSub">Loading local usage…</span>
+      </div>
+      <div class="cost-line" id="costLine"></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label"><span class="dot" style="background:#8b7bff"></span>Fresh input</div><div class="kpi-value" id="kpiInput">—</div><div class="kpi-track"><i id="barInput" style="background:#8b7bff;width:0"></i></div></div>
+      <div class="kpi"><div class="kpi-label"><span class="dot" style="background:#22d3ee"></span>Cache read</div><div class="kpi-value" id="kpiCache">—</div><div class="kpi-track"><i id="barCache" style="background:#22d3ee;width:0"></i></div></div>
+      <div class="kpi"><div class="kpi-label"><span class="dot" style="background:#34d399"></span>Output</div><div class="kpi-value" id="kpiOutput">—</div><div class="kpi-track"><i id="barOutput" style="background:#34d399;width:0"></i></div></div>
+      <div class="kpi"><div class="kpi-label"><span class="dot" style="background:#fbbf24"></span>Reasoning</div><div class="kpi-value" id="kpiReasoning">—</div><div class="kpi-track"><i id="barReasoning" style="background:#fbbf24;width:0"></i></div></div>
+    </div>
+  </section>
+
+  <div class="filters">
+    <div class="range-pills" id="rangePills">
+      <button data-days="1">Today</button>
+      <button data-days="7">7D</button>
+      <button data-days="30" class="active">30D</button>
+      <button data-days="90">90D</button>
+      <button data-days="0">All</button>
+    </div>
+    <div class="selects">
+      <div class="select-wrap"><label for="sourceFilter">App</label><select id="sourceFilter"><option value="">All apps</option></select></div>
+      <div class="select-wrap"><label for="accountFilter">Account</label><select id="accountFilter"><option value="">All accounts</option></select></div>
+      <div class="select-wrap"><label for="modelFilter">Model</label><select id="modelFilter"><option value="">All models</option></select></div>
+      <button class="reset" id="resetFilters">Reset</button>
+    </div>
+  </div>
+
+  <div class="empty-banner" id="emptyBanner">
+    <span>No usage in this range. Use an AI app, then scan again — everything stays on this machine.</span>
+    <button class="btn secondary" id="emptyScan">Scan now</button>
+  </div>
+
+  <section class="grid grid-main">
+    <div class="card chart-card">
+      <div class="card-head">
+        <div><h2>Token activity</h2><p>Daily usage by token type</p></div>
+        <div class="chart-legend" id="chartLegend"></div>
+      </div>
+      <div class="chart-wrap" id="chartWrap">
+        <svg id="dailyChart" role="img" aria-label="Daily token usage chart"></svg>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Where it goes</h2><p>Share of tokens by app</p></div></div>
+      <div class="donut-row">
+        <div class="donut" id="donut"><div class="donut-hole"><strong id="donutTotal">—</strong><span>tokens</span></div></div>
+        <div class="source-legend" id="sourceLegend"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid grid-secondary">
+    <div class="card models-card">
+      <div class="card-head"><div><h2>Models</h2><p>Usage and API-equivalent value</p></div><span class="muted" style="font-size:10.5px" id="modelCount"></span></div>
+      <div class="model-list" id="modelList"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Token mix</h2><p>How your context is spent</p></div></div>
+      <div class="stackbar" id="stackbar"></div>
+      <div class="mix-list" id="mixList"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+  </section>
+
+  <section class="card sessions-card">
+    <div class="card-head"><div><h2>Sessions</h2><p>Most recent agent sessions in this range</p></div><span class="muted" style="font-size:10.5px" id="sessionCount"></span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col" style="width:34px" aria-label="Expand"></th><th scope="col">Session</th><th scope="col">App</th><th scope="col">Model</th><th scope="col" class="num">Tokens</th><th scope="col" class="num">Value</th><th scope="col" class="num">Last active</th></tr></thead>
+        <tbody id="sessionsBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span class="privacy">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5.2c0 4.3-2.9 7.7-7 9.8-4.1-2.1-7-5.5-7-9.8V6l7-3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Local-first. No accounts, no cloud, no telemetry.
+    </span>
+    <span class="mono" id="dbPath"></span>
+  </footer>
+</main>
+
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-head">
+      <div>
+        <h3 id="settingsTitle">Accounts &amp; settings</h3>
+        <p>Give each local account a name you recognize. TokenTrace only reads usage files the apps already write to disk.</p>
+      </div>
+      <button class="icon-btn" id="closeSettings" aria-label="Close settings"><svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="modal-section">
+      <h4>Account labels</h4>
+      <div id="accountRows"></div>
+      <div class="note">Accounts are local labels, not logins. If you use two logins in the same app installation, its history cannot be split retroactively — but you can point TokenTrace at extra data folders in <code>config.json</code>.</div>
+    </div>
+    <div class="modal-section">
+      <h4>Local data</h4>
+      <div class="note">
+        Config: <code id="configPath"></code><br>
+        Database: <code id="settingsDbPath"></code>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="modalScan">Run scan</button>
+      <button class="btn secondary" id="cancelSettings">Cancel</button>
+      <button class="btn" id="saveSettings">Save labels</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+window.__TT__ = __TT_BOOTSTRAP__;
+</script>
+<script>
+(() => {
+  "use strict";
+
+  const TT = window.__TT__ || {};
+  const TOKEN_META = {
+    input:      { label: "Fresh input", color: "#8b7bff" },
+    cache_read: { label: "Cache read",  color: "#22d3ee" },
+    cache_write:{ label: "Cache write", color: "#f472b6" },
+    output:     { label: "Output",      color: "#34d399" },
+    reasoning:  { label: "Reasoning",   color: "#fbbf24" }
+  };
+  const ORDER = ["input", "cache_read", "cache_write", "output", "reasoning"];
+  const SOURCE_COLORS = ["#8b7bff", "#22d3ee", "#34d399", "#fbbf24", "#f472b6", "#60a5fa", "#fb923c", "#a3e635"];
+  const SOURCE_COLOR_MAP = {
+    "OpenCode": "#22d3ee",
+    "Antigravity IDE": "#8b7bff",
+    "Antigravity App": "#a78bfa",
+    "Antigravity": "#a78bfa",
+    "Antigravity CLI": "#c084fc",
+    "Claude Code": "#fb923c",
+    "Codex": "#34d399",
+    "Gemini CLI": "#60a5fa"
+  };
+  const PROVIDER_NAMES = { google: "Google", anthropic: "Anthropic", openai: "OpenAI", deepseek: "DeepSeek", opencode: "OpenCode", openrouter: "OpenRouter" };
+
+  const state = {
+    days: 30,
+    source: "",
+    account: "",
+    model: "",
+    hidden: new Set(),
+    data: null,
+    loading: false,
+    scanning: false,
+    accounts: []
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const nf = new Intl.NumberFormat();
+
+  function esc(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function fmtTokens(value) {
+    const n = Number(value || 0);
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return nf.format(Math.round(n));
+  }
+
+  function fmtNumber(value) { return nf.format(Math.round(Number(value || 0))); }
+
+  function fmtCost(value, unknown) {
+    if (value == null || (Number(value) === 0 && unknown)) return "n/a";
+    const n = Number(value);
+    if (n === 0) return "$0.00";
+    if (n >= 1) return "$" + n.toFixed(2);
+    if (n >= 0.01) return "$" + n.toFixed(3);
+    return "$" + n.toFixed(4);
+  }
+
+  function fmtPct(value) {
+    if (value == null) return "no prior period";
+    const n = Number(value);
+    return (n > 0 ? "+" : "") + n.toFixed(1) + "%";
+  }
+
+  function pct(part, whole) {
+    if (!whole) return 0;
+    return Math.min(100, Math.max(0, (part / whole) * 100));
+  }
+
+  function relTime(ms) {
+    if (!ms) return "—";
+    const diff = Date.now() - ms;
+    if (diff < 45000) return "just now";
+    if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+    if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+    if (diff < 7 * 86400000) return Math.floor(diff / 86400000) + "d ago";
+    return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  function shortDate(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  function rangeName(days) {
+    if (days === 0) return "All time";
+    if (days === 1) return "Today";
+    return "Last " + days + " days";
+  }
+
+  function providerName(raw) {
+    if (!raw) return "";
+    const key = String(raw).split(":")[0];
+    return PROVIDER_NAMES[key] || key.charAt(0).toUpperCase() + key.slice(1);
+  }
+
+  function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
+  }
+
+  function toast(message, isError) {
+    const el = $("toast");
+    el.textContent = message;
+    el.className = "toast show" + (isError ? " error" : "");
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { el.className = "toast"; }, 4200);
+  }
+
+  async function api(path, options) {
+    const opts = Object.assign({ cache: "no-store" }, options || {});
+    if (opts.method && opts.method !== "GET") {
+      opts.headers = Object.assign({ "Content-Type": "application/json", "X-TT-Token": TT.token || "" }, opts.headers || {});
+      if (!opts.body) opts.body = "{}";
+    }
+    const res = await fetch(path, opts);
+    let payload = null;
+    try { payload = await res.json(); } catch (_) { payload = {}; }
+    if (!res.ok) throw new Error(payload.error || ("Request failed (" + res.status + ")"));
+    return payload;
+  }
+
+  function queryString() {
+    const q = new URLSearchParams();
+    q.set("days", state.days === 0 ? "all" : String(state.days));
+    if (state.source) q.set("source", state.source);
+    if (state.account) q.set("account", state.account);
+    if (state.model) q.set("model", state.model);
+    return q.toString();
+  }
+
+  async function load(showError) {
+    if (state.loading) return;
+    state.loading = true;
+    document.body.classList.add("loading");
+    try {
+      const data = await api("/api/summary?" + queryString());
+      state.data = data;
+      render(data);
+    } catch (error) {
+      if (showError !== false) toast(error.message || "Could not load usage", true);
+    } finally {
+      state.loading = false;
+      document.body.classList.remove("loading");
+    }
+  }
+
+  function render(data) {
+    state.accounts = (data.options && data.options.accounts) || [];
+    syncFilters(data);
+    renderHero(data);
+    renderKpis(data.totals);
+    renderChart(data.daily);
+    renderDonut(data.sources, data.totals);
+    renderModels(data.models);
+    renderMix(data.totals);
+    renderSessions(data.sessions);
+    setText("lastScan", data.meta && data.meta.last_scan ? "Updated " + relTime(data.meta.last_scan) : "Not scanned yet");
+    setText("dbPath", (data.meta && data.meta.db) ? data.meta.db : "");
+    setText("settingsDbPath", (data.meta && data.meta.db) ? data.meta.db : "");
+    setText("configPath", TT.configPath || "~/.tokentrace/config.json");
+    const filtered = Boolean(state.source || state.account || state.model);
+    $("emptyBanner").querySelector("span").textContent = filtered
+      ? "No usage matches these filters. Try a wider range or reset the filters."
+      : "No usage in this range. Use an AI app, then scan again — everything stays on this machine.";
+    $("emptyBanner").classList.toggle("show", !data.totals.events);
+  }
+
+  function syncFilters(data) {
+    const options = data.options || {};
+    fillSelect("sourceFilter", (options.sources || []).map((s) => ({ value: s, label: s })), state.source);
+    fillSelect("accountFilter", (options.accounts || []).map((a) => ({ value: a.key, label: a.label })), state.account);
+    fillSelect("modelFilter", (options.models || []).map((m) => ({ value: m.model, label: m.label })), state.model);
+    if (!$("sourceFilter").value) state.source = "";
+    if (!$("accountFilter").value) state.account = "";
+    if (!$("modelFilter").value) state.model = "";
+    document.querySelectorAll("#rangePills button").forEach((btn) => {
+      btn.classList.toggle("active", Number(btn.dataset.days) === state.days);
+    });
+    setText("rangeLabel", rangeName(state.days));
+  }
+
+  function fillSelect(id, options, value) {
+    const select = $(id);
+    const first = select.options.length ? select.options[0].outerHTML : '<option value="">All</option>';
+    select.innerHTML = first + options.map((o) => '<option value="' + esc(o.value) + '">' + esc(o.label) + "</option>").join("");
+    select.value = options.some((o) => o.value === value) ? value : "";
+  }
+
+  function renderHero(data) {
+    const t = data.totals;
+    setText("totalTokens", fmtTokens(t.tokens));
+    const delta = $("deltaChip");
+    if (t.token_delta_pct == null) {
+      delta.innerHTML = '<span class="delta neutral">' + (t.prev_tokens ? "vs " + fmtTokens(t.prev_tokens) : "no prior data") + "</span>";
+    } else {
+      const up = t.token_delta_pct >= 0;
+      delta.innerHTML = '<span class="delta ' + (up ? "up" : "down") + '">' + (up ? "↑" : "↓") + " " + fmtPct(t.token_delta_pct).replace("+", "") + "</span>";
+    }
+    const appCount = data.sources.length;
+    const modelCount = data.models.length;
+    setText("heroSub", appCount + " app" + (appCount === 1 ? "" : "s") + " · " + modelCount + " model" + (modelCount === 1 ? "" : "s") + " · " + t.sessions + " session" + (t.sessions === 1 ? "" : "s"));
+    const accountLabels = (data.accounts || []).map((a) => a.label);
+    setText("heroAccounts", accountLabels.slice(0, 3).join(" · ") + (accountLabels.length > 3 ? " · +" + (accountLabels.length - 3) : ""));
+    let costText = "";
+    if (!t.events) {
+      costText = "No usage recorded in this range.";
+    } else if (t.unknown_cost_events > 0) {
+      costText = "≥ <strong>" + fmtCost(t.cost, 0) + "</strong> API-equivalent value · " + t.unknown_cost_events + " unpriced record" + (t.unknown_cost_events === 1 ? "" : "s");
+    } else if (t.cost_estimated > 0) {
+      costText = "≈ <strong>" + fmtCost(t.cost, 0) + "</strong> API-equivalent value · subscriptions are not charged per token";
+    } else if (t.cost > 0) {
+      costText = "<strong>" + fmtCost(t.cost, 0) + "</strong> recorded by the apps";
+    } else {
+      costText = "<strong>$0.00</strong> recorded · free or subscription-included usage";
+    }
+    $("costLine").innerHTML = costText;
+  }
+
+  function renderKpis(t) {
+    const total = t.tokens || 1;
+    setText("kpiInput", fmtTokens(t.input));
+    setText("kpiCache", fmtTokens(t.cache_read));
+    setText("kpiOutput", fmtTokens(t.output));
+    setText("kpiReasoning", fmtTokens(t.reasoning));
+    $("barInput").style.width = pct(t.input, total) + "%";
+    $("barCache").style.width = pct(t.cache_read, total) + "%";
+    $("barOutput").style.width = pct(t.output, total) + "%";
+    $("barReasoning").style.width = pct(t.reasoning, total) + "%";
+  }
+
+  function renderLegend() {
+    $("chartLegend").innerHTML = ORDER.filter((key) => TOKEN_META[key]).map((key) => {
+      const meta = TOKEN_META[key];
+      const off = state.hidden.has(key) ? " off" : "";
+      return '<button class="legend-item' + off + '" data-series="' + key + '"><span class="legend-dot" style="background:' + meta.color + '"></span>' + meta.label + "</button>";
+    }).join("");
+    document.querySelectorAll("#chartLegend .legend-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.series;
+        if (state.hidden.has(key)) state.hidden.delete(key); else state.hidden.add(key);
+        renderLegend();
+        if (state.data) renderChart(state.data.daily);
+      });
+    });
+  }
+
+  function renderChart(daily) {
+    renderLegend();
+    const svg = $("dailyChart");
+    const wrap = $("chartWrap");
+    const W = Math.max(320, wrap.clientWidth);
+    const H = Math.max(220, wrap.clientHeight);
+    const pad = { l: 46, r: 10, t: 12, b: 28 };
+    const innerW = W - pad.l - pad.r;
+    const innerH = H - pad.t - pad.b;
+    const active = ORDER.filter((key) => !state.hidden.has(key));
+    const hasData = daily.some((d) => d.tokens > 0);
+
+    if (!hasData || !active.length) {
+      svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+      svg.innerHTML = '<text x="' + (W / 2) + '" y="' + (H / 2) + '" text-anchor="middle" fill="#7f869c" font-size="12" font-family="Inter,Segoe UI,sans-serif">' + (active.length ? "No usage in this range" : "All series hidden") + "</text>";
+      $("tooltip").classList.remove("show");
+      return;
+    }
+
+    const totals = daily.map((d) => active.reduce((sum, key) => sum + Number(d[key] || 0), 0));
+    const max = niceMax(Math.max.apply(null, totals));
+    const y = (value) => pad.t + innerH - (value / max) * innerH;
+    const n = daily.length;
+    const slot = innerW / n;
+    const barW = Math.max(1.5, Math.min(26, slot * 0.62));
+    let markup = "";
+
+    for (let i = 0; i <= 4; i++) {
+      const value = (max / 4) * i;
+      const yy = y(value);
+      markup += '<line x1="' + pad.l + '" x2="' + (W - pad.r) + '" y1="' + yy + '" y2="' + yy + '" stroke="rgba(255,255,255,' + (i === 0 ? ".09" : ".055") + ')" stroke-width="1"/>';
+      markup += '<text x="' + (pad.l - 9) + '" y="' + (yy + 3.5) + '" text-anchor="end" fill="#7f869c" font-size="9.5" font-family="Inter,Segoe UI,sans-serif">' + fmtTokens(value) + "</text>";
+    }
+
+    const labelStep = Math.max(1, Math.ceil(n / (W < 620 ? 4 : 7)));
+    daily.forEach((day, index) => {
+      const x = pad.l + index * slot + (slot - barW) / 2;
+      let acc = 0;
+      active.forEach((key) => {
+        const value = Number(day[key] || 0);
+        if (!value) return;
+        const h = (value / max) * innerH;
+        const yy = pad.t + innerH - acc - h;
+        markup += '<rect x="' + x + '" y="' + yy + '" width="' + barW + '" height="' + Math.max(h, 0.8) + '" rx="1.2" fill="' + TOKEN_META[key].color + '" opacity=".92"/>';
+        acc += h;
+      });
+      if (index % labelStep === 0 || index === n - 1) {
+        const label = shortDate(day.date);
+        markup += '<text x="' + (pad.l + index * slot + slot / 2) + '" y="' + (H - 8) + '" text-anchor="middle" fill="#7f869c" font-size="9.5" font-family="Inter,Segoe UI,sans-serif">' + esc(label) + "</text>";
+      }
+      markup += '<rect class="hover-zone" data-index="' + index + '" x="' + (pad.l + index * slot) + '" y="' + pad.t + '" width="' + slot + '" height="' + innerH + '" fill="transparent" style="cursor:crosshair"/>';
+    });
+
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.innerHTML = markup;
+
+    const tooltip = $("tooltip");
+    const showTip = (index, clientX, clientY) => {
+      const day = daily[index];
+      if (!day) return;
+      const rows = ORDER.filter((key) => Number(day[key] || 0) > 0).map((key) => {
+        const meta = TOKEN_META[key];
+        return '<div class="tt-row"><span><i class="legend-dot" style="background:' + meta.color + '"></i>' + meta.label + '</span><strong>' + fmtNumber(day[key]) + "</strong></div>";
+      }).join("");
+      tooltip.innerHTML = '<div class="tt-date">' + esc(new Date(day.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })) + "</div>" + rows + '<div class="tt-row tt-total"><span>Total</span><strong>' + fmtNumber(day.tokens) + "</strong></div>";
+      const rect = wrap.getBoundingClientRect();
+      let left = clientX - rect.left + 14;
+      let top = clientY - rect.top - 10;
+      if (left + 210 > rect.width) left = clientX - rect.left - 196;
+      if (top < 0) top = 8;
+      tooltip.style.left = left + "px";
+      tooltip.style.top = top + "px";
+      tooltip.classList.add("show");
+    };
+    svg.querySelectorAll(".hover-zone").forEach((zone) => {
+      zone.addEventListener("mouseenter", (event) => showTip(Number(zone.dataset.index), event.clientX, event.clientY));
+      zone.addEventListener("mousemove", (event) => showTip(Number(zone.dataset.index), event.clientX, event.clientY));
+      zone.addEventListener("click", (event) => showTip(Number(zone.dataset.index), event.clientX, event.clientY));
+    });
+    svg.addEventListener("mouseleave", () => tooltip.classList.remove("show"));
+  }
+
+  function niceMax(value) {
+    if (!value || value <= 0) return 1;
+    // Aim for four grid intervals while keeping the tallest bar close to the top.
+    const rough = (value * 1.05) / 4;
+    const exp = Math.floor(Math.log10(rough));
+    const base = Math.pow(10, exp);
+    const fraction = rough / base;
+    const steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+    const nice = steps.find((step) => fraction <= step) || 10;
+    return nice * base * 4;
+  }
+
+  function renderDonut(sources, totals) {
+    const donut = $("donut");
+    const legend = $("sourceLegend");
+    setText("donutTotal", fmtTokens(totals.tokens));
+    if (!sources.length) {
+      donut.style.background = "conic-gradient(rgba(255,255,255,.06) 0 100%)";
+      legend.innerHTML = '<div class="source-more">No usage in this range.</div>';
+      return;
+    }
+    const top = sources.slice(0, 5);
+    const rest = sources.slice(5);
+    const items = top.map((s) => ({ label: s.label, tokens: s.tokens, color: sourceColor(s.label) }));
+    if (rest.length) items.push({ label: "Other", tokens: rest.reduce((sum, s) => sum + s.tokens, 0), color: "#4b5163" });
+    let cursor = 0;
+    const total = items.reduce((sum, item) => sum + item.tokens, 0) || 1;
+    const stops = items.map((item) => {
+      const start = cursor;
+      cursor += (item.tokens / total) * 100;
+      return item.color + " " + start.toFixed(2) + "% " + cursor.toFixed(2) + "%";
+    });
+    donut.style.background = "conic-gradient(" + stops.join(",") + ")";
+    legend.innerHTML = items.map((item) => {
+      const share = (item.tokens / total) * 100;
+      return '<div class="source-row"><span class="dot" style="background:' + item.color + '"></span><span class="source-name">' + esc(item.label) + '</span><span class="source-share"><b>' + fmtTokens(item.tokens) + "</b>" + share.toFixed(1) + "%</span></div>";
+    }).join("");
+  }
+
+  function renderModels(models) {
+    const list = $("modelList");
+    setText("modelCount", models.length ? models.length + " model" + (models.length === 1 ? "" : "s") : "");
+    if (!models.length) {
+      list.innerHTML = '<div class="source-more" style="padding:20px 0">No models in this range.</div>';
+      return;
+    }
+    const top = models[0].tokens || 1;
+    list.innerHTML = models.slice(0, 8).map((model) => {
+      const provider = providerName((model.providers || [])[0]);
+      const width = Math.max(2, (model.tokens / top) * 100);
+      return '<div class="model-row">' +
+        '<div><div class="model-name">' + esc(model.label || model.model) + (provider ? '<span class="provider-tag">' + esc(provider) + "</span>" : "") + "</div>" +
+        '<div class="model-track"><i style="width:' + width.toFixed(1) + '%"></i></div></div>' +
+        '<div class="model-nums"><strong>' + fmtTokens(model.tokens) + "</strong><span>" + fmtCost(model.cost, model.unknown_cost_events) + " · " + model.share.toFixed(1) + "%</span></div>" +
+        "</div>";
+    }).join("");
+  }
+
+  function renderMix(t) {
+    const total = t.tokens || 1;
+    const keys = ORDER.filter((key) => Number(t[key] || 0) > 0);
+    const stack = $("stackbar");
+    const list = $("mixList");
+    if (!keys.length) {
+      stack.style.display = "none";
+      stack.innerHTML = "";
+      list.innerHTML = '<div class="source-more">No usage in this range.</div>';
+      $("insight").innerHTML = "";
+      return;
+    }
+    stack.style.display = "";
+    stack.innerHTML = keys.map((key) => '<i style="background:' + TOKEN_META[key].color + ";width:" + pct(t[key], total) + '%" title="' + TOKEN_META[key].label + ": " + fmtNumber(t[key]) + '"></i>').join("");
+    list.innerHTML = keys.map((key) => {
+      const meta = TOKEN_META[key];
+      return '<div class="mix-row"><span class="dot" style="background:' + meta.color + '"></span><span class="mix-label">' + meta.label + '</span><span class="mix-value">' + fmtTokens(t[key]) + '</span><span class="mix-pct">' + pct(t[key], total).toFixed(1) + "%</span></div>";
+    }).join("");
+    const cacheRatio = t.cache_read / Math.max(1, t.input + t.cache_read) * 100;
+    const reasoningShare = t.reasoning / total * 100;
+    const parts = [];
+    if (t.cache_read > 0) parts.push("<b>" + cacheRatio.toFixed(0) + "% cache hit rate</b> — most input was reused context rather than fresh prompt.");
+    parts.push("Reasoning is <b>" + reasoningShare.toFixed(1) + "%</b> of total tokens.");
+    if (t.unknown_cost_events > 0) parts.push("<b>" + t.unknown_cost_events + "</b> record" + (t.unknown_cost_events === 1 ? " has" : "s have") + " no public price and are excluded from value.");
+    $("insight").innerHTML = parts.slice(0, 2).join("<br>");
+  }
+
+  function renderSessions(sessions) {
+    const body = $("sessionsBody");
+    setText("sessionCount", sessions.length + " session" + (sessions.length === 1 ? "" : "s"));
+    if (!sessions.length) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#7f869c;padding:28px 10px;font-size:12px">No sessions in this range.</td></tr>';
+      return;
+    }
+    body.innerHTML = sessions.map((s, index) => {
+      const color = sourceColor(s.source_label);
+      const model = s.models && s.models[0];
+      const extra = s.models && s.models.length > 1 ? '<span class="chip-more">+' + (s.models.length - 1) + "</span>" : "";
+      const sub = s.project ? esc(s.project) : esc(s.account || s.surface || "");
+      const value = fmtCost(s.cost, s.unknown_cost ? 1 : 0);
+      return '<tr class="session-row" data-index="' + index + '">' +
+        '<td><button class="chev" type="button" aria-label="Expand session" aria-expanded="false"><svg viewBox="0 0 12 12" fill="none"><path d="M4.2 2.4L7.8 6l-3.6 3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button></td>' +
+        '<td><div class="session-title">' + esc(s.title) + '</div><div class="session-sub">' + sub + " · " + relTime(s.end) + "</div></td>" +
+        '<td><span class="app-badge"><span class="app-dot" style="background:' + color + '"></span>' + esc(s.source_label) + "</span></td>" +
+        '<td>' + (model ? '<span class="model-chip">' + esc(model.label || model.model) + "</span>" + extra : '<span class="muted">—</span>') + "</td>" +
+        '<td class="num"><strong>' + fmtTokens(s.tokens) + "</strong><span>" + s.events + " records</span></td>" +
+        '<td class="num"><strong>' + value + "</strong><span>" + (s.unknown_cost ? "unpriced" : "value") + "</span></td>" +
+        '<td class="num"><strong>' + relTime(s.end) + "</strong><span>" + new Date(s.start).toLocaleDateString(undefined, { month: "short", day: "numeric" }) + "</span></td>" +
+        "</tr>" +
+        '<tr class="detail-row" id="detail-' + index + '" style="display:none" role="presentation"><td colspan="7" role="presentation"><div class="detail-inner">' +
+          '<div class="detail-block"><h4>Token mix</h4><div class="detail-chips">' +
+            ORDER.filter((key) => Number(s[key] || 0) > 0).map((key) => '<span class="detail-chip">' + TOKEN_META[key].label + "<b>" + fmtNumber(s[key]) + "</b></span>").join("") +
+          '</div><div class="detail-meta">Session <code>' + esc(s.id) + "</code><br>" + s.events + " generation records · " + esc(s.account) + "</div></div>" +
+          '<div class="detail-block"><h4>Models used</h4><div class="detail-chips">' +
+            (s.models || []).map((m) => '<span class="detail-chip">' + esc(m.label || m.model) + "<b>" + fmtTokens(m.tokens) + "</b></span>").join("") +
+          "</div></div>" +
+        "</div></td></tr>";
+    }).join("");
+    body.querySelectorAll(".session-row").forEach((row) => {
+      row.addEventListener("click", () => {
+        const index = row.dataset.index;
+        const detail = $("detail-" + index);
+        const open = row.classList.toggle("open");
+        if (detail) detail.style.display = open ? "" : "none";
+        const chevron = row.querySelector(".chev");
+        if (chevron) chevron.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    });
+  }
+
+  function sourceColor(name) {
+    if (SOURCE_COLOR_MAP[name]) return SOURCE_COLOR_MAP[name];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    return SOURCE_COLORS[hash % SOURCE_COLORS.length];
+  }
+
+  async function runScan() {
+    if (state.scanning) return;
+    state.scanning = true;
+    const button = $("scanBtn");
+    const label = $("scanLabel");
+    const icon = $("scanIcon");
+    button.disabled = true;
+    label.textContent = "Scanning…";
+    icon.classList.add("spin");
+    try {
+      const result = await api("/api/scan", { method: "POST" });
+      const report = result.report || {};
+      const warnings = (report.errors || []).length;
+      toast("Scan complete · " + (report.events || 0) + " records from " + (report.instances || 0) + " sources" + (warnings ? " · " + warnings + " warning" + (warnings === 1 ? "" : "s") : ""));
+      await load(false);
+    } catch (error) {
+      toast(error.message || "Scan failed", true);
+    } finally {
+      state.scanning = false;
+      button.disabled = false;
+      label.textContent = "Scan now";
+      icon.classList.remove("spin");
+    }
+  }
+
+  function openSettings() {
+    const rows = $("accountRows");
+    if (!state.accounts.length) {
+      rows.innerHTML = '<div class="source-more">No accounts detected yet. Run a scan first.</div>';
+    } else {
+      rows.innerHTML = state.accounts.map((account) =>
+        '<div class="account-row"><span class="account-key" title="' + esc(account.key) + '">' + esc(account.key) + '</span><input data-key="' + esc(account.key) + '" value="' + esc(account.label) + '" maxlength="120" aria-label="Label for ' + esc(account.key) + '"></div>'
+      ).join("");
+    }
+    $("configPath").textContent = TT.configPath || "";
+    $("settingsDbPath").textContent = (state.data && state.data.meta) ? state.data.meta.db : "";
+    $("settingsModal").classList.add("open");
+    const first = rows.querySelector("input");
+    if (first) setTimeout(() => first.focus(), 40);
+  }
+
+  function closeSettings() { $("settingsModal").classList.remove("open"); }
+
+  async function saveSettings() {
+    const accounts = {};
+    document.querySelectorAll("#accountRows input").forEach((input) => {
+      const value = input.value.trim();
+      if (value) accounts[input.dataset.key] = value;
+    });
+    try {
+      await api("/api/accounts", { method: "POST", body: JSON.stringify({ accounts }) });
+      toast("Account labels saved");
+      closeSettings();
+      await load(false);
+    } catch (error) {
+      toast(error.message || "Could not save labels", true);
+    }
+  }
+
+  function bind() {
+    $("scanBtn").addEventListener("click", runScan);
+    $("emptyScan").addEventListener("click", runScan);
+    $("settingsBtn").addEventListener("click", openSettings);
+    $("closeSettings").addEventListener("click", closeSettings);
+    $("cancelSettings").addEventListener("click", closeSettings);
+    $("saveSettings").addEventListener("click", saveSettings);
+    $("modalScan").addEventListener("click", async () => { closeSettings(); await runScan(); });
+    $("settingsModal").addEventListener("click", (event) => { if (event.target === $("settingsModal")) closeSettings(); });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeSettings(); });
+
+    document.querySelectorAll("#rangePills button").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.days = Number(button.dataset.days);
+        load();
+      });
+    });
+    ["sourceFilter", "accountFilter", "modelFilter"].forEach((id) => {
+      $(id).addEventListener("change", () => {
+        state.source = $("sourceFilter").value;
+        state.account = $("accountFilter").value;
+        state.model = $("modelFilter").value;
+        load();
+      });
+    });
+    $("resetFilters").addEventListener("click", () => {
+      state.source = ""; state.account = ""; state.model = "";
+      load();
+    });
+
+    let resizeTimer = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { if (state.data) renderChart(state.data.daily); }, 120);
+    });
+    setInterval(() => { if (!document.hidden && !state.scanning) load(false); }, 30000);
+  }
+
+  bind();
+  load();
+
+  // Reveal content smoothly once the first payload lands.
+  const style = document.createElement("style");
+  style.textContent = "body{opacity:0;transition:opacity .25s ease}body.ready{opacity:1}";
+  document.head.appendChild(style);
+  const readyTimer = setInterval(() => {
+    if (state.data) { document.body.classList.add("ready"); clearInterval(readyTimer); }
+  }, 60);
+  setTimeout(() => { document.body.classList.add("ready"); clearInterval(readyTimer); }, 1400);
+})();
+</script>
+</body>
+</html>
