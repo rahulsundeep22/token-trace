@@ -555,7 +555,7 @@ window.__TT__ = __TT_BOOTSTRAP__;
   function esc(value) {
     return String(value == null ? "" : value)
       .replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">")
-      .replace(/"/g, """).replace(/'/g, "'");
+      .replace(/"/g, "\"").replace(/'/g, "'");
   }
 
   function fmtTokens(value) {
@@ -999,30 +999,32 @@ window.__TT__ = __TT_BOOTSTRAP__;
   }
 
   // Event bindings
-  document.querySelectorAll("#rangePills button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.days = Number(btn.dataset.days);
+  function bindEvents() {
+    document.querySelectorAll("#rangePills button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.days = Number(btn.dataset.days);
+        load();
+      });
+    });
+
+    ["sourceFilter", "accountFilter", "modelFilter"].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener("change", () => {
+        const key = id.replace("Filter", "");
+        state[key] = el.value;
+        load();
+      });
+    });
+
+    $("#resetFilters")?.addEventListener("click", () => {
+      state.source = state.account = state.model = "";
+      const s = $("sourceFilter"); if (s) s.value = "";
+      const a = $("accountFilter"); if (a) a.value = "";
+      const m = $("modelFilter"); if (m) m.value = "";
       load();
     });
-  });
 
-  ["sourceFilter", "accountFilter", "modelFilter"].forEach((id) => {
-    $(id).addEventListener("change", () => {
-      const key = id.replace("Filter", "");
-      state[key] = $(id).value;
-      load();
-    });
-  });
-
-  $("#resetFilters").addEventListener("click", () => {
-    state.source = state.account = state.model = "";
-    $("sourceFilter").value = "";
-    $("accountFilter").value = "";
-    $("modelFilter").value = "";
-    load();
-  });
-
-  $("#scanBtn").addEventListener("click", async () => {
+    $("#scanBtn")?.addEventListener("click", async () => {
     if (state.scanning) return;
     state.scanning = true;
     const btn = $("#scanBtn");
@@ -1045,45 +1047,62 @@ window.__TT__ = __TT_BOOTSTRAP__;
     }
   });
 
-  $("#emptyScan").addEventListener("click", () => $("#scanBtn").click());
+  $("#emptyScan")?.addEventListener("click", () => $("#scanBtn")?.click());
 
-  $("#settingsBtn").addEventListener("click", () => {
-    const rows = $("accountRows");
-    rows.innerHTML = state.accounts.map((a) =>
-      '<div class="account-row"><span class="account-key">' + esc(a.key) + '</span><input type="text" data-key="' + esc(a.key) + '" value="' + esc(a.label) + '" placeholder="Label"></div>'
-    ).join("");
-    setText("configPath", TT.configPath || "~/.tokentrace/config.json");
-    setText("settingsDbPath", state.data?.meta?.db || "");
-    $("settingsModal").classList.add("open");
-  });
-
-  $("#closeSettings, #cancelSettings").forEach((el) => el?.addEventListener("click", () => $("settingsModal").classList.remove("open")));
-
-  $("#saveSettings").addEventListener("click", async () => {
-    const accounts = {};
-    document.querySelectorAll("#accountRows input").forEach((input) => {
-      accounts[input.dataset.key] = input.value;
+    $("#settingsBtn")?.addEventListener("click", () => {
+      const rows = $("accountRows");
+      if (rows) rows.innerHTML = state.accounts.map((a) =>
+        '<div class="account-row"><span class="account-key">' + esc(a.key) + '</span><input type="text" data-key="' + esc(a.key) + '" value="' + esc(a.label) + '" placeholder="Label"></div>'
+      ).join("");
+      setText("configPath", TT.configPath || "~/.tokentrace/config.json");
+      setText("settingsDbPath", state.data?.meta?.db || "");
+      const modal = $("settingsModal");
+      if (modal) modal.classList.add("open");
     });
-    try {
-      await api("/api/accounts", { method: "POST", body: JSON.stringify({ accounts }) });
-      toast("Labels saved");
-      load();
-    } catch (error) {
-      toast(error.message || "Save failed", true);
-    }
-    $("settingsModal").classList.remove("open");
-  });
 
-  $("#modalScan").addEventListener("click", () => {
-    $("settingsModal").classList.remove("open");
-    setTimeout(() => $("#scanBtn").click(), 80);
-  });
+    $("#closeSettings")?.addEventListener("click", () => {
+      const modal = $("settingsModal");
+      if (modal) modal.classList.remove("open");
+    });
+    $("#cancelSettings")?.addEventListener("click", () => {
+      const modal = $("settingsModal");
+      if (modal) modal.classList.remove("open");
+    });
 
-  // Initial load
-  load();
+    $("#saveSettings")?.addEventListener("click", async () => {
+      const accounts = {};
+      document.querySelectorAll("#accountRows input").forEach((input) => {
+        accounts[input.dataset.key] = input.value;
+      });
+      try {
+        await api("/api/accounts", { method: "POST", body: JSON.stringify({ accounts }) });
+        toast("Labels saved");
+        load();
+      } catch (error) {
+        toast(error.message || "Save failed", true);
+      }
+      const modal = $("settingsModal");
+      if (modal) modal.classList.remove("open");
+    });
 
-  // Auto-refresh every 30s
-  setInterval(() => { if (!state.loading && !state.scanning) load(false); }, 30000);
+    $("#modalScan")?.addEventListener("click", () => {
+      const modal = $("settingsModal");
+      if (modal) modal.classList.remove("open");
+      setTimeout(() => $("#scanBtn")?.click(), 80);
+    });
+
+    // Initial load
+    load();
+
+    // Auto-refresh every 30s
+    setInterval(() => { if (!state.loading && !state.scanning) load(false); }, 30000);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindEvents);
+  } else {
+    bindEvents();
+  }
 })();
 </script>
 </body>
